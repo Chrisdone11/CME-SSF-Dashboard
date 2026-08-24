@@ -1,454 +1,631 @@
+<meta name='viewport' content='width=device-width, initial-scale=1'/>```html
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CME Single Stock Futures Margin & Volume Dashboard</title>
-    <!-- Tailwind CSS CDN -->
+    <title>일일 루틴 트래커</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- FontAwesome CDN -->
+    <!-- Font Awesome (아이콘) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Noto Sans KR) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js 라이브러리 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f8fafc;
+        }
+        .checkbox-custom:checked + label .checkbox-icon {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+        .checkbox-custom:checked + label .checkbox-icon i {
+            display: block;
+        }
+        .checkbox-custom:checked + label .routine-title {
+            text-decoration: line-through;
+            color: #94a3b8;
+        }
+        .checkbox-custom:checked + label .routine-desc {
+            color: #cbd5e1;
+        }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+<body class="text-slate-800 antialiased min-h-screen pb-12">
 
-    <!-- Header -->
-    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div class="flex items-center space-x-3">
-                <div class="bg-blue-600 text-white p-2.5 rounded-xl shadow-lg shadow-blue-500/20">
-                    <i class="fa-solid fa-shield-halved text-xl"></i>
+    <!-- 상단 헤더 -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <div class="max-w-3xl mx-auto px-4 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 text-white p-2.5 rounded-xl shadow-md shadow-blue-200">
+                    <i class="fa-solid fa-calendar-check text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold tracking-tight text-white">CME 미국주식선물 증거금 및 거래량 대시보드</h1>
-                    <p class="text-xs text-slate-400">CME Security Futures Margin & Live Volume 통합 시스템</p>
+                    <h1 class="text-xl font-bold text-slate-900">MY DAILY ROUTINE</h1>
+                    <p class="text-xs text-slate-500">매일의 작은 습관이 만드는 큰 변화</p>
                 </div>
             </div>
-            <div class="flex items-center space-x-3">
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    <span class="w-2 h-2 mr-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
-                    SPAN 마진 데이터 연동 완료
-                </span>
-                <button onclick="manualRefresh()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg border border-slate-700 transition flex items-center space-x-1.5">
-                    <i class="fa-solid fa-rotate-right" id="refreshIcon"></i>
-                    <span>데이터 동기화</span>
+            
+            <div class="flex items-center gap-2">
+                <!-- 루틴 추가 버튼 -->
+                <button id="openAddModalBtn" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-plus"></i> 루틴 추가
                 </button>
+
+                <!-- 날짜 선택기 -->
+                <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                    <button id="prevDate" class="p-1 hover:bg-white rounded-md transition text-slate-600">
+                        <i class="fa-solid fa-chevron-left text-xs"></i>
+                    </button>
+                    <input type="date" id="datePicker" class="bg-transparent font-medium text-xs text-slate-700 focus:outline-none cursor-pointer">
+                    <button id="nextDate" class="p-1 hover:bg-white rounded-md transition text-slate-600">
+                        <i class="fa-solid fa-chevron-right text-xs"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
+    <main class="max-w-3xl mx-auto px-4 pt-6 space-y-6">
 
-        <!-- Top Overview Stats -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">거래량 1위 (Micro NVIDIA)</p>
-                        <h3 class="text-2xl font-bold text-white mt-1" id="statNvidiaVol">864 <span class="text-xs font-normal text-slate-400">계약</span></h3>
-                    </div>
-                    <div class="p-2 bg-blue-500/10 text-blue-400 rounded-lg">
-                        <i class="fa-solid fa-microchip text-lg"></i>
-                    </div>
-                </div>
-                <div class="mt-3 flex items-center text-xs text-slate-400">
-                    <span>유지증거금: <strong class="text-emerald-400">$304</strong> (스캔율 40%)</span>
-                </div>
-            </div>
-
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Apple 표준 주식선물</p>
-                        <h3 class="text-2xl font-bold text-white mt-1">$4,674 <span class="text-xs font-normal text-slate-400">마진</span></h3>
-                    </div>
-                    <div class="p-2 bg-purple-500/10 text-purple-400 rounded-lg">
-                        <i class="fa-solid fa-apple-whole text-lg"></i>
-                    </div>
-                </div>
-                <div class="mt-3 flex items-center text-xs text-slate-400">
-                    <span>마이크로(MAAPL): <strong class="text-white">$4,634</strong></span>
-                </div>
-            </div>
-
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">표준 스캔 마진율</p>
-                        <h3 class="text-2xl font-bold text-emerald-400 mt-1">40.0%</h3>
-                    </div>
-                    <div class="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg">
-                        <i class="fa-solid fa-percent text-lg"></i>
-                    </div>
-                </div>
-                <div class="mt-3 flex items-center text-xs text-slate-400">
-                    <span>CME Security Futures 공통 적용</span>
-                </div>
-            </div>
-
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">연동 종목 수</p>
-                        <h3 class="text-2xl font-bold text-white mt-1">77개 <span class="text-xs font-normal text-slate-400">종목</span></h3>
-                    </div>
-                    <div class="p-2 bg-amber-500/10 text-amber-400 rounded-lg">
-                        <i class="fa-solid fa-layer-group text-lg"></i>
-                    </div>
-                </div>
-                <div class="mt-3 flex items-center text-xs text-slate-400">
-                    <span>SPAN 마진 서비스 공식 기준</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- AI Insights Section -->
-        <div class="bg-gradient-to-r from-blue-900/40 to-purple-900/40 border border-indigo-500/30 rounded-2xl p-6 shadow-sm relative overflow-hidden">
-            <div class="absolute top-0 right-0 p-4 opacity-10">
-                <i class="fa-solid fa-brain text-6xl text-indigo-400"></i>
-            </div>
-            <div class="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+        <!-- 전체 달성률 현황 대시보드 -->
+        <section class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200/80 space-y-5">
+            <div class="flex items-center justify-between">
                 <div>
-                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-sparkles text-indigo-400"></i> AI Market Insights
-                    </h2>
-                    <p class="text-xs text-indigo-200/70">Gemini AI가 분석하는 실시간 거래량 트렌드</p>
+                    <h2 class="text-lg font-bold text-slate-800">오늘의 루틴 달성률</h2>
+                    <p id="progressText" class="text-xs text-slate-500 mt-0.5">총 0개 항목 중 0개 완료</p>
                 </div>
-                <button onclick="generateAIInsights()" id="aiInsightBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg shadow-lg shadow-indigo-500/30 transition flex items-center space-x-2">
-                    <i class="fa-solid fa-wand-magic-sparkles"></i>
-                    <span>인사이트 생성하기</span>
-                </button>
+                <div class="text-right">
+                    <span id="totalPercent" class="text-3xl font-extrabold text-blue-600">0%</span>
+                </div>
             </div>
-            <div id="aiInsightContent" class="bg-slate-950/50 rounded-xl p-4 border border-indigo-500/20 text-sm text-slate-300 leading-relaxed min-h-[80px] flex items-center justify-center">
-                <span class="text-slate-500 italic flex items-center gap-2">
-                    버튼을 클릭하여 현재 거래량 데이터를 기반으로 한 AI 분석을 확인하세요.
-                </span>
+            
+            <!-- 프로그레스 바 -->
+            <div class="w-full bg-slate-100 h-3.5 rounded-full overflow-hidden p-0.5 border border-slate-200/60">
+                <div id="progressBar" class="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
             </div>
-        </div>
 
-        <!-- Charts Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Main Bar Chart -->
-            <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
-                    <div>
-                        <h2 class="text-lg font-bold text-white">상위 종목 거래량 및 유지증거금 비교</h2>
-                        <p class="text-xs text-slate-400">CME 공식 거래량 순위와 증거금(Maintenance) 매칭</p>
+            <!-- 오전/오후 개별 달성 요약 -->
+            <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                <div class="flex items-center justify-between bg-amber-50/60 p-3 rounded-xl border border-amber-100">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-sun text-amber-500 text-sm"></i>
+                        <span class="text-xs font-semibold text-slate-700">오전 루틴</span>
                     </div>
+                    <span id="morningCount" class="text-xs font-bold text-amber-700">0/0</span>
                 </div>
-                <div class="relative flex-grow w-full h-[340px]">
-                    <canvas id="volumeBarChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Share Doughnut Chart -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col">
-                <div class="mb-6">
-                    <h2 class="text-lg font-bold text-white">상위 종목 거래 점유율</h2>
-                    <p class="text-xs text-slate-400">빅테크 및 반도체 거래 집중도</p>
-                </div>
-                <div class="relative flex-grow w-full h-[260px] flex items-center justify-center">
-                    <canvas id="shareChart"></canvas>
-                </div>
-                <div class="mt-4 grid grid-cols-2 gap-2 text-xs text-slate-300 pt-2 border-t border-slate-800">
-                    <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-blue-500 inline-block mr-2"></span> NVIDIA (19.8%)</div>
-                    <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block mr-2"></span> Tesla (14.2%)</div>
-                    <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-purple-500 inline-block mr-2"></span> Apple (10.0%)</div>
-                    <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-amber-500 inline-block mr-2"></span> 기타 종목 (56.0%)</div>
+                <div class="flex items-center justify-between bg-indigo-50/60 p-3 rounded-xl border border-indigo-100">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-moon text-indigo-500 text-sm"></i>
+                        <span class="text-xs font-semibold text-slate-700">오후 루틴</span>
+                    </div>
+                    <span id="afternoonCount" class="text-xs font-bold text-indigo-700">0/0</span>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <!-- Table Section with Maintenance Margin -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-sm overflow-hidden">
-            <div class="p-6 border-b border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <!-- 최근 7일 달성률 추이 그래프 섹션 -->
+        <section class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200/80 space-y-4">
+            <div class="flex items-center justify-between">
                 <div>
-                    <h2 class="text-lg font-bold text-white">CME 주식선물 종목별 거래량 및 증거금 상세</h2>
-                    <p class="text-xs text-slate-400">첨부된 SPAN 마진 CSV 및 공식 순위 데이터를 결합한 통합 정보</p>
+                    <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-blue-500"></i> 최근 7일 달성률 흐름
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5">일자별 달성률 추이를 한눈에 확인하세요</p>
                 </div>
-                <div class="w-full sm:w-auto flex items-center space-x-2">
-                    <div class="relative w-full sm:w-64">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500">
-                            <i class="fa-solid fa-search"></i>
-                        </span>
-                        <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="종목명 검색..." class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition">
-                    </div>
+                <div class="flex gap-2">
+                    <span class="text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
+                        주간 평균: <b id="avgPercentText" class="text-blue-600">0%</b>
+                    </span>
                 </div>
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse text-xs sm:text-sm">
-                    <thead>
-                        <tr class="bg-slate-950/60 text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-800 text-xs">
-                            <th class="py-3.5 px-6">순위 / 종목명</th>
-                            <th class="py-3.5 px-4">상품 코드</th>
-                            <th class="py-3.5 px-4">계약 분류</th>
-                            <th class="py-3.5 px-4 text-right">유지증거금 (Maintenance)</th>
-                            <th class="py-3.5 px-4 text-right">일일 거래량</th>
-                            <th class="py-3.5 px-6 text-right">CME 공식 링크</th>
-                        </tr>
-                    </thead>
-                    <tbody id="stockTableBody" class="divide-y divide-slate-800/60 text-slate-300">
-                        <!-- Populated by JavaScript -->
-                    </tbody>
-                </table>
+            <!-- 캔버스 차트 영역 -->
+            <div class="w-full h-48 pt-2">
+                <canvas id="weeklyChart"></canvas>
             </div>
+        </section>
+
+        <!-- 오전 루틴 섹션 -->
+        <section class="space-y-3">
+            <div class="flex items-center gap-2 px-1">
+                <div class="w-2 h-4 bg-amber-500 rounded-full"></div>
+                <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-sun text-amber-500"></i> 오전 루틴
+                </h3>
+                <span id="morningTotalTag" class="text-xs text-slate-400 font-normal">0개 항목</span>
+            </div>
+
+            <div class="space-y-2.5" id="morningList">
+                <!-- 동적 루틴 카드가 생성되는 구역 -->
+            </div>
+        </section>
+
+        <!-- 오후 루틴 섹션 -->
+        <section class="space-y-3 pt-2">
+            <div class="flex items-center gap-2 px-1">
+                <div class="w-2 h-4 bg-indigo-500 rounded-full"></div>
+                <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-moon text-indigo-500"></i> 오후 루틴
+                </h3>
+                <span id="afternoonTotalTag" class="text-xs text-slate-400 font-normal">0개 항목</span>
+            </div>
+
+            <div class="space-y-2.5" id="afternoonList">
+                <!-- 동적 루틴 카드가 생성되는 구역 -->
+            </div>
+        </section>
+
+        <!-- 축하 메시지 (전체 완료 시 노출) -->
+        <div id="congratsBanner" class="hidden bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-5 rounded-2xl shadow-lg text-center space-y-1 transform transition-all">
+            <div class="text-2xl">🎉</div>
+            <h4 class="font-bold text-lg">오늘의 모든 루틴을 달성했습니다!</h4>
+            <p class="text-xs text-emerald-100">꾸준함이 만드는 변화, 오늘 하루도 정말 수고하셨습니다.</p>
         </div>
 
     </main>
 
-    <!-- Footer -->
-    <footer class="bg-slate-900 border-t border-slate-800 mt-12 py-6 text-center text-xs text-slate-500">
-        <p>본 대시보드는 CME Group Product Margins 및 SPAN 마진 데이터를 기반으로 제작되었습니다.</p>
-        <p class="mt-1">© 2026 CME Group SSF Margin & Volume Dashboard. All rights reserved.</p>
-    </footer>
+    <!-- 루틴 추가/수정 모달 팝업 -->
+    <div id="routineModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 id="modalTitle" class="text-lg font-bold text-slate-800">새 루틴 추가</h3>
+                <button id="closeModalBtn" class="text-slate-400 hover:text-slate-600 transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
 
-    <!-- Application Script -->
+            <form id="routineForm" class="space-y-3">
+                <input type="hidden" id="editRoutineId" value="">
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">구분</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition text-xs font-semibold">
+                            <input type="radio" name="modalCategory" value="morning" checked class="accent-blue-600">
+                            <i class="fa-solid fa-sun text-amber-500"></i> 오전 루틴
+                        </label>
+                        <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition text-xs font-semibold">
+                            <input type="radio" name="modalCategory" value="afternoon" class="accent-blue-600">
+                            <i class="fa-solid fa-moon text-indigo-500"></i> 오후 루틴
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">루틴 이름 *</label>
+                    <input type="text" id="modalTitleInput" required placeholder="예: 영양제 챙겨먹기" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">상세 설명</label>
+                    <input type="text" id="modalDescInput" placeholder="예: 비타민C, 오메가3 섭취" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">시간 / 태그</label>
+                    <input type="text" id="modalTagInput" placeholder="예: 10분, 건강, 식단관리 등" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500">
+                </div>
+
+                <div class="pt-2 flex gap-2">
+                    <button type="button" id="cancelModalBtn" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold rounded-xl transition">취소</button>
+                    <button type="submit" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition shadow-md shadow-blue-100" id="submitModalBtn">추가하기</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
-        // Data updated with maintenance margins from uploaded CSV & official specs
-        let rankingData = [
-            { rank: 1, name: "Micro NVIDIA", code: "XNVDA", type: "마이크로 (10주)", maintenance: "$304", volume: 864, link: "https://www.cmegroup.com/markets/equities/single-stock/micro-nvidia.contractSpecs.html" },
-            { rank: 2, name: "Micro Tesla", code: "XTSL0", type: "마이크로 (10주)", maintenance: "$375", volume: 619, link: "https://www.cmegroup.com/markets/equities/single-stock/micro-tesla.contractSpecs.html" },
-            { rank: 3, name: "Micro Apple", code: "XAAPL", type: "마이크로 (10주)", maintenance: "$463", volume: 436, link: "https://www.cmegroup.com/markets/equities/single-stock/micro-apple.contractSpecs.html" },
-            { rank: 4, name: "Micro Netflix", code: "XNFLX", type: "마이크로 (10주)", maintenance: "$510", volume: 384, link: "https://www.cmegroup.com/markets/equities/single-stock/micro-netflix.contractSpecs.html" },
-            { rank: 5, name: "Micro Advanced Micro Devices", code: "XAMD0", type: "마이크로 (10주)", maintenance: "$290", volume: 310, link: "https://www.cmegroup.com/markets/equities/single-stock/micro-amd.contractSpecs.html" },
-            { rank: 6, name: "Micro Amazon.com", code: "XAMZN", type: "마이크로 (10주)", maintenance: "$320", volume: 304, link: "https://www.cmegroup.com/markets/equities/single-stock/micro-amazon.contractSpecs.html" },
-            { rank: 7, name: "Micro Palantir Technologies", code: "XPLTR", type: "마이크로 (10주)", maintenance: "$248", volume: 270, link: "https://www.cmegroup.com/markets/equities/single-stock/micro-palantir.contractSpecs.html" },
-            { rank: 8, name: "Micro Intel Corp", code: "XINTC", type: "마이크로 (10주)", maintenance: "$180", volume: 198, link: "https://www.cmegroup.com/markets/equities/single-stock/micro-intel.contractSpecs.html" },
-            { rank: 9, name: "Micro Microsoft", code: "XMSFT", type: "마이크로 (10주)", maintenance: "$440", volume: 195, link: "https://www.cmegroup.com/markets/equities/single-stock/micro-microsoft.contractSpecs.html" },
-            { rank: 10, name: "Micro Micron Technology", code: "XMU", type: "마이크로 (10주)", maintenance: "$210", volume: 144, link: "https://www.cmegroup.com/markets/equities/single-stock/micro-micron.contractSpecs.html" },
-            { rank: 11, name: "Micro Exxon Mobil", code: "XOM0", type: "마이크로 (10주)", maintenance: "$235", volume: 135, link: "https://www.cmegroup.com/markets/equities/single-stock/micro-exxon.contractSpecs.html" },
-            { rank: 12, name: "Micro Cisco Systems", code: "XCSCO", type: "마이크로 (10주)", maintenance: "$160", volume: 120, link: "https://www.cmegroup.com/markets/equities/single-stock/micro-cisco.contractSpecs.html" }
+        // 기본 10개 초기 데이터 정의
+        const DEFAULT_ROUTINES = [
+            { id: 'r1', category: 'morning', title: '1. 웨이트 트레이닝', desc: '기본 근력 운동 진행 및 기록', tag: '1시간', tagBg: 'bg-slate-100', tagColor: 'text-slate-600' },
+            { id: 'r2', category: 'morning', title: '2. 아침식단', desc: '헬시팩 + 단백질쉐이크 섭취', tag: '식단관리', tagBg: 'bg-emerald-50', tagColor: 'text-emerald-600' },
+            { id: 'r3', category: 'morning', title: '3. 경제신문 완독', desc: '오늘 자 주요 경제 뉴스/신문 완독하기', tag: '자기계발', tagBg: 'bg-blue-50', tagColor: 'text-blue-600' },
+            { id: 'r4', category: 'morning', title: '4. 주요기사 토론회', desc: '최소 2개 주제 / 5번 이상의 대화 주고받기', tag: '토론/인사이트', tagBg: 'bg-purple-50', tagColor: 'text-purple-600' },
+            { id: 'r5', category: 'morning', title: '5. 귀 마사지', desc: '귓볼 당기기 + 귀접기 + 귀뒤뿌리 자극', tag: '10분', tagBg: 'bg-rose-50', tagColor: 'text-rose-600' },
+            { id: 'r6', category: 'afternoon', title: '6. 바이브코딩 어플 제작', desc: '바이브코딩 진행 (최소 1개 대화라도 진행하기)', tag: '개발 프로젝트', tagBg: 'bg-sky-50', tagColor: 'text-sky-600' },
+            { id: 'r7', category: 'afternoon', title: '7. 개인 휴식', desc: '16시 전후 가벼운 휴식 타임 갖기', tag: '30분', tagBg: 'bg-amber-50', tagColor: 'text-amber-600' },
+            { id: 'r8', category: 'afternoon', title: '8. 책 읽기', desc: '최소 30페이지 이상 읽기', tag: '독서', tagBg: 'bg-emerald-50', tagColor: 'text-emerald-600' },
+            { id: 'r9', category: 'afternoon', title: '9. 악력기 운동', desc: '세트당 30회, 총 5세트 수행', tag: '운동', tagBg: 'bg-orange-50', tagColor: 'text-orange-600' },
+            { id: 'r10', category: 'afternoon', title: '10. 눈감고 명상', desc: '라벤더 향수와 함께하는 릴렉스 명상', tag: '10분', tagBg: 'bg-indigo-50', tagColor: 'text-indigo-600' }
         ];
 
-        let barChartInstance = null;
-        let shareChartInstance = null;
+        // 전역 상태
+        let routines = [];
+        let weeklyChart = null;
 
-        // Render Table
-        function renderTable(data) {
-            const tbody = document.getElementById('stockTableBody');
-            tbody.innerHTML = '';
-            data.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-900/60 transition';
-                tr.innerHTML = `
-                    <td class="py-4 px-6 flex items-center space-x-3">
-                        <span class="w-6 h-6 rounded-full bg-slate-800 text-slate-300 font-bold text-xs flex items-center justify-center">${item.rank}</span>
-                        <span class="font-bold text-white">${item.name}</span>
-                    </td>
-                    <td class="py-4 px-4 font-mono text-xs text-slate-400">${item.code}</td>
-                    <td class="py-4 px-4">
-                        <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                            ${item.type}
-                        </span>
-                    </td>
-                    <td class="py-4 px-4 font-mono font-semibold text-emerald-400 text-right">${item.maintenance}</td>
-                    <td class="py-4 px-4 font-mono font-bold text-blue-400 text-right">${item.volume.toLocaleString()} 계약</td>
-                    <td class="py-4 px-6 text-right">
-                        <a href="${item.link}" target="_blank" class="inline-flex items-center space-x-1 text-xs font-medium text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg transition border border-blue-500/20">
-                            <span>CME 공식</span>
-                            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                        </a>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
+        // DOM 요소
+        const datePicker = document.getElementById('datePicker');
+        const prevDateBtn = document.getElementById('prevDate');
+        const nextDateBtn = document.getElementById('nextDate');
+        
+        const progressBar = document.getElementById('progressBar');
+        const totalPercent = document.getElementById('totalPercent');
+        const progressText = document.getElementById('progressText');
+        const morningCount = document.getElementById('morningCount');
+        const afternoonCount = document.getElementById('afternoonCount');
+        const morningTotalTag = document.getElementById('morningTotalTag');
+        const afternoonTotalTag = document.getElementById('afternoonTotalTag');
+        const congratsBanner = document.getElementById('congratsBanner');
+        const avgPercentText = document.getElementById('avgPercentText');
+
+        const morningList = document.getElementById('morningList');
+        const afternoonList = document.getElementById('afternoonList');
+
+        // 모달 DOM
+        const routineModal = document.getElementById('routineModal');
+        const openAddModalBtn = document.getElementById('openAddModalBtn');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const cancelModalBtn = document.getElementById('cancelModalBtn');
+        const routineForm = document.getElementById('routineForm');
+        const editRoutineId = document.getElementById('editRoutineId');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalTitleInput = document.getElementById('modalTitleInput');
+        const modalDescInput = document.getElementById('modalDescInput');
+        const modalTagInput = document.getElementById('modalTagInput');
+        const submitModalBtn = document.getElementById('submitModalBtn');
+
+        // YYYY-MM-DD 날짜 포맷
+        function getFormattedDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
         }
 
-        // Filter Table
-        function filterTable() {
-            const query = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = rankingData.filter(item => item.name.toLowerCase().includes(query) || item.code.toLowerCase().includes(query));
-            renderTable(filtered);
-        }
+        // 초기 날짜 세팅
+        let currentDate = new Date();
+        datePicker.value = getFormattedDate(currentDate);
 
-        // Initialize Charts
-        function initCharts() {
-            const labels = rankingData.map(item => item.name.replace('Micro ', ''));
-            const volumes = rankingData.map(item => item.volume);
-
-            // Bar Chart
-            const ctxBar = document.getElementById('volumeBarChart').getContext('2d');
-            if (barChartInstance) barChartInstance.destroy();
-
-            barChartInstance = new Chart(ctxBar, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: '일일 거래량 (계약)',
-                        data: volumes,
-                        backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                        borderColor: 'rgba(59, 130, 246, 1)',
-                        borderWidth: 1,
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                            titleFont: { family: 'Inter', size: 13 },
-                            bodyFont: { family: 'Inter', size: 12 },
-                            padding: 10,
-                            borderColor: 'rgba(51, 65, 85, 1)',
-                            borderWidth: 1
-                        }
-                    },
-                    scales: {
-                        x: {
-                            grid: { color: 'rgba(51, 65, 85, 0.2)' },
-                            ticks: { color: '#94a3b8', font: { family: 'Inter', size: 10 }, maxRotation: 45, minRotation: 45 }
-                        },
-                        y: {
-                            grid: { color: 'rgba(51, 65, 85, 0.2)' },
-                            ticks: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
-                        }
-                    }
-                }
-            });
-
-            // Share Doughnut Chart
-            const ctxShare = document.getElementById('shareChart').getContext('2d');
-            if (shareChartInstance) shareChartInstance.destroy();
-
-            shareChartInstance = new Chart(ctxShare, {
-                type: 'doughnut',
-                data: {
-                    labels: ['NVIDIA', 'Tesla', 'Apple', 'Netflix', '기타 상위종목'],
-                    datasets: [{
-                        data: [864, 619, 436, 384, 2056],
-                        backgroundColor: ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#64748b'],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    cutout: '70%'
-                }
-            });
-        }
-
-        // Update Stats Header
-        function updateStats() {
-            document.getElementById('statNvidiaVol').innerHTML = `${rankingData[0].volume.toLocaleString()} <span class="text-xs font-normal text-slate-400">계약</span>`;
-        }
-
-        // Generate AI Insights using Gemini API
-        async function generateAIInsights() {
-            const btn = document.getElementById('aiInsightBtn');
-            const contentDiv = document.getElementById('aiInsightContent');
-            const originalBtnText = btn.innerHTML;
-
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>분석 중...</span>';
-            contentDiv.innerHTML = `
-                <div class="flex flex-col items-center justify-center w-full space-y-3 py-4">
-                    <div class="flex space-x-1">
-                        <div class="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style="animation-delay: -0.3s"></div>
-                        <div class="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style="animation-delay: -0.15s"></div>
-                        <div class="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div>
-                    </div>
-                    <span class="text-xs text-indigo-300">Gemini 모델이 데이터를 분석하고 있습니다...</span>
-                </div>
-            `;
-
-            // Prepare data summary for the prompt
-            const top5 = rankingData.slice(0, 5).map(item => `${item.name} (${item.volume} 계약)`).join(', ');
-            const totalVolume = rankingData.reduce((sum, item) => sum + item.volume, 0);
-
-            const prompt = `
-                다음은 현재 CME 미국 주식선물 상위 12개 종목의 데이터입니다.
-                상위 5개 종목: ${top5}
-                총 관측 거래량: ${totalVolume} 계약
-
-                위 데이터를 바탕으로 한국어로 짧고 전문적인 금융 시장 인사이트를 2-3문장으로 작성해주세요.
-                예를 들어 특정 기술주에 거래가 집중되고 있다거나, 전반적인 시장의 관심도를 언급해주세요.
-                마크다운 없이 평문으로 자연스럽게 작성하세요.
-            `;
-
-            const apiKey = ""; // API Key is automatically provided in the Canvas environment
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: {
-                    parts: [{ text: "당신은 월스트리트의 노련한 퀀트 애널리스트입니다. 데이터에 기반하여 핵심만 간결하고 통찰력 있게 분석합니다." }]
-                },
-            };
-
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const result = await response.json();
-                if (result.candidates && result.candidates[0].content.parts[0].text) {
-                    const insightText = result.candidates[0].content.parts[0].text;
-                    contentDiv.innerHTML = `<div class="text-slate-200 font-medium">${insightText}</div>`;
-                } else {
-                    throw new Error("Unexpected API response structure");
-                }
-            } catch (error) {
-                console.error("Error generating insights:", error);
-                contentDiv.innerHTML = `<div class="text-red-400 flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation"></i> 인사이트를 생성하는 중 오류가 발생했습니다. 나중에 다시 시도해주세요.</div>`;
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = originalBtnText;
+        // 마스터 루틴 목록 로드 (저장된 게 없으면 초기 데이터 저장)
+        function initRoutines() {
+            const savedRoutines = localStorage.getItem('master_routines');
+            if (savedRoutines) {
+                routines = JSON.parse(savedRoutines);
+            } else {
+                routines = [...DEFAULT_ROUTINES];
+                saveMasterRoutines();
             }
         }
 
-        // Manual Refresh Simulation
-        function manualRefresh() {
-            const icon = document.getElementById('refreshIcon');
-            icon.classList.add('fa-spin');
-
-            setTimeout(() => {
-                rankingData.forEach(item => {
-                    const delta = Math.floor(Math.random() * 15) - 5;
-                    item.volume = Math.max(50, item.volume + delta);
-                });
-                rankingData.sort((a, b) => b.volume - a.volume);
-                rankingData.forEach((item, index) => item.rank = index + 1);
-
-                renderTable(rankingData);
-                initCharts();
-                updateStats();
-                icon.classList.remove('fa-spin');
-            }, 600);
+        function saveMasterRoutines() {
+            localStorage.setItem('master_routines', JSON.stringify(routines));
         }
 
-        // Auto Refresh Daily Simulator
-        setInterval(() => {
-            manualRefresh();
-        }, 86400000);
+        // 루틴 카드 렌더링
+        function renderRoutines() {
+            morningList.innerHTML = '';
+            afternoonList.innerHTML = '';
 
-        // On Load
-        window.onload = function() {
-            renderTable(rankingData);
-            initCharts();
-            updateStats();
+            let morningTotal = 0;
+            let afternoonTotal = 0;
+
+            routines.forEach(r => {
+                if (r.category === 'morning') morningTotal++;
+                if (r.category === 'afternoon') afternoonTotal++;
+
+                const cardHtml = `
+                    <div class="routine-card bg-white rounded-xl border border-slate-200/80 p-4 shadow-sm hover:border-slate-300 transition group relative">
+                        <input type="checkbox" id="${r.id}" class="checkbox-custom hidden" data-category="${r.category}" data-id="${r.id}">
+                        <label for="${r.id}" class="flex items-start gap-3.5 cursor-pointer select-none">
+                            <div class="checkbox-icon w-6 h-6 rounded-lg border-2 border-slate-300 flex items-center justify-center shrink-0 mt-0.5 transition-all">
+                                <i class="fa-solid fa-check text-white text-xs hidden"></i>
+                            </div>
+                            <div class="flex-1 pr-12">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="routine-title font-semibold text-slate-800">${r.title}</span>
+                                    ${r.tag ? `<span class="px-2 py-0.5 text-[11px] font-medium ${r.tagBg || 'bg-slate-100'} ${r.tagColor || 'text-slate-600'} rounded-md shrink-0">${r.tag}</span>` : ''}
+                                </div>
+                                ${r.desc ? `<p class="routine-desc text-xs text-slate-500 mt-1">${r.desc}</p>` : ''}
+                            </div>
+                        </label>
+                        <!-- 수정 및 삭제 버튼 구역 -->
+                        <div class="absolute right-3 top-3.5 flex items-center gap-1 opacity-80 group-hover:opacity-100 transition">
+                            <button onclick="openEditModal('${r.id}')" class="text-slate-300 hover:text-blue-500 p-1.5 rounded-lg transition" title="수정">
+                                <i class="fa-solid fa-pen-to-square text-xs"></i>
+                            </button>
+                            <button onclick="deleteRoutine('${r.id}')" class="text-slate-300 hover:text-rose-500 p-1.5 rounded-lg transition" title="삭제">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                if (r.category === 'morning') {
+                    morningList.insertAdjacentHTML('beforeend', cardHtml);
+                } else {
+                    afternoonList.insertAdjacentHTML('beforeend', cardHtml);
+                }
+            });
+
+            morningTotalTag.textContent = `${morningTotal}개 항목`;
+            afternoonTotalTag.textContent = `${afternoonTotal}개 항목`;
+
+            // 체크박스 이벤트 바인딩
+            document.querySelectorAll('.checkbox-custom').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    saveRoutineState(datePicker.value);
+                    updateProgress();
+                });
+            });
+
+            loadRoutineState(datePicker.value);
+        }
+
+        // 루틴 수정 모달 열기
+        window.openEditModal = function(id) {
+            const target = routines.find(r => r.id === id);
+            if (!target) return;
+
+            editRoutineId.value = target.id;
+            modalTitle.textContent = '루틴 수정하기';
+            modalTitleInput.value = target.title;
+            modalDescInput.value = target.desc || '';
+            modalTagInput.value = target.tag || '';
+
+            const radios = routineForm.elements['modalCategory'];
+            for (let radio of radios) {
+                if (radio.value === target.category) radio.checked = true;
+            }
+
+            submitModalBtn.textContent = '수정 완료';
+            routineModal.classList.remove('hidden');
         };
+
+        // 루틴 삭제 기능
+        window.deleteRoutine = function(id) {
+            if (confirm('이 루틴을 삭제하시겠습니까?')) {
+                routines = routines.filter(r => r.id !== id);
+                saveMasterRoutines();
+                renderRoutines();
+            }
+        };
+
+        // 특정 날짜 달성률 계산 (0~100)
+        function getPercentByDate(dateStr) {
+            const savedData = JSON.parse(localStorage.getItem(`routine_${dateStr}`)) || {};
+            if (routines.length === 0) return 0;
+
+            let checkedCount = 0;
+            routines.forEach(r => {
+                if (savedData[r.id]) checkedCount++;
+            });
+            return Math.round((checkedCount / routines.length) * 100);
+        }
+
+        // 주간 차트 업데이트
+        function updateWeeklyChart() {
+            const selectedDate = new Date(datePicker.value);
+            const labels = [];
+            const dataScores = [];
+            let totalSum = 0;
+
+            for (let i = 6; i >= 0; i--) {
+                const targetDate = new Date(selectedDate);
+                targetDate.setDate(selectedDate.getDate() - i);
+                
+                const dateStr = getFormattedDate(targetDate);
+                const monthDay = `${targetDate.getMonth() + 1}/${targetDate.getDate()}`;
+                
+                const score = getPercentByDate(dateStr);
+                
+                labels.push(monthDay);
+                dataScores.push(score);
+                totalSum += score;
+            }
+
+            const avg = Math.round(totalSum / 7);
+            avgPercentText.textContent = `${avg}%`;
+
+            const ctx = document.getElementById('weeklyChart').getContext('2d');
+
+            if (weeklyChart) {
+                weeklyChart.data.labels = labels;
+                weeklyChart.data.datasets[0].data = dataScores;
+                weeklyChart.update();
+            } else {
+                weeklyChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '달성률 (%)',
+                            data: dataScores,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2.5,
+                            fill: true,
+                            tension: 0.35,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#3b82f6',
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) { return ` 달성률: ${context.parsed.y}%`; }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                min: 0,
+                                max: 100,
+                                ticks: {
+                                    stepSize: 25,
+                                    callback: function(value) { return value + '%'; },
+                                    font: { size: 10 }
+                                },
+                                grid: { color: '#f1f5f9' }
+                            },
+                            x: {
+                                ticks: { font: { size: 11 } },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // 로컬스토리지 특정 날짜 데이터 로드
+        function loadRoutineState(dateStr) {
+            const savedData = JSON.parse(localStorage.getItem(`routine_${dateStr}`)) || {};
+            
+            document.querySelectorAll('.checkbox-custom').forEach(cb => {
+                cb.checked = savedData[cb.dataset.id] || false;
+            });
+
+            updateProgress();
+        }
+
+        // 로컬스토리지 특정 날짜 데이터 저장
+        function saveRoutineState(dateStr) {
+            const stateData = {};
+            document.querySelectorAll('.checkbox-custom').forEach(cb => {
+                stateData[cb.dataset.id] = cb.checked;
+            });
+            localStorage.setItem(`routine_${dateStr}`, JSON.stringify(stateData));
+        }
+
+        // 달성률 및 UI 업데이트
+        function updateProgress() {
+            const checkboxes = document.querySelectorAll('.checkbox-custom');
+            const total = checkboxes.length;
+            
+            let checkedTotal = 0;
+            let morningChecked = 0;
+            let morningTotal = 0;
+            let afternoonChecked = 0;
+            let afternoonTotal = 0;
+
+            checkboxes.forEach(cb => {
+                const category = cb.dataset.category;
+                if (category === 'morning') morningTotal++;
+                if (category === 'afternoon') afternoonTotal++;
+
+                if (cb.checked) {
+                    checkedTotal++;
+                    if (category === 'morning') morningChecked++;
+                    if (category === 'afternoon') afternoonChecked++;
+                }
+            });
+
+            const percent = total > 0 ? Math.round((checkedTotal / total) * 100) : 0;
+
+            // UI 텍스트 & 바 업데이트
+            progressBar.style.width = `${percent}%`;
+            totalPercent.textContent = `${percent}%`;
+            progressText.textContent = `총 ${total}개 항목 중 ${checkedTotal}개 완료`;
+            morningCount.textContent = `${morningChecked}/${morningTotal}`;
+            afternoonCount.textContent = `${afternoonChecked}/${afternoonTotal}`;
+
+            // 100% 달성 시 축하 배너
+            if (percent === 100 && total > 0) {
+                congratsBanner.classList.remove('hidden');
+            } else {
+                congratsBanner.classList.add('hidden');
+            }
+
+            // 차트 갱신
+            updateWeeklyChart();
+        }
+
+        // 모달 열기 (신규 추가용)
+        openAddModalBtn.addEventListener('click', () => {
+            editRoutineId.value = '';
+            modalTitle.textContent = '새 루틴 추가';
+            routineForm.reset();
+            submitModalBtn.textContent = '추가하기';
+            routineModal.classList.remove('hidden');
+        });
+
+        // 모달 닫기
+        function closeModal() {
+            routineModal.classList.add('hidden');
+            routineForm.reset();
+            editRoutineId.value = '';
+        }
+
+        closeModalBtn.addEventListener('click', closeModal);
+        cancelModalBtn.addEventListener('click', closeModal);
+
+        // 루틴 폼 제출 (추가 / 수정)
+        routineForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const category = routineForm.elements['modalCategory'].value;
+            const title = modalTitleInput.value.trim();
+            const desc = modalDescInput.value.trim();
+            const tag = modalTagInput.value.trim();
+            const targetId = editRoutineId.value;
+
+            if (!title) return;
+
+            if (targetId) {
+                // 기존 루틴 수정
+                const targetIndex = routines.findIndex(r => r.id === targetId);
+                if (targetIndex !== -1) {
+                    routines[targetIndex] = {
+                        ...routines[targetIndex],
+                        category,
+                        title,
+                        desc,
+                        tag: tag || (category === 'morning' ? '오전' : '오후')
+                    };
+                }
+            } else {
+                // 신규 루틴 생성
+                const newRoutine = {
+                    id: 'r_' + Date.now(),
+                    category: category,
+                    title: title,
+                    desc: desc,
+                    tag: tag || (category === 'morning' ? '오전' : '오후'),
+                    tagBg: category === 'morning' ? 'bg-amber-50' : 'bg-indigo-50',
+                    tagColor: category === 'morning' ? 'text-amber-600' : 'text-indigo-600'
+                };
+                routines.push(newRoutine);
+            }
+
+            saveMasterRoutines();
+            renderRoutines();
+            closeModal();
+        });
+
+        // 날짜 이동 이벤트
+        datePicker.addEventListener('change', (e) => {
+            loadRoutineState(e.target.value);
+        });
+
+        prevDateBtn.addEventListener('click', () => {
+            const dateObj = new Date(datePicker.value);
+            dateObj.setDate(dateObj.getDate() - 1);
+            const newDateStr = getFormattedDate(dateObj);
+            datePicker.value = newDateStr;
+            loadRoutineState(newDateStr);
+        });
+
+        nextDateBtn.addEventListener('click', () => {
+            const dateObj = new Date(datePicker.value);
+            dateObj.setDate(dateObj.getDate() + 1);
+            const newDateStr = getFormattedDate(dateObj);
+            datePicker.value = newDateStr;
+            loadRoutineState(newDateStr);
+        });
+
+        // 앱 초기화 실행
+        initRoutines();
+        renderRoutines();
     </script>
 </body>
 </html>
-
+```
