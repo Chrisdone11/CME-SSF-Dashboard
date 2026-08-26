@@ -1,4 +1,5 @@
-<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<meta name='viewport' content='width=device-width, initial-scale=1'/>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -217,6 +218,53 @@
         </div>
     </div>
 
+    <!-- 개별 루틴 히스토리 조회 모달 -->
+    <div id="historyModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <div class="p-2 bg-blue-50 text-blue-600 rounded-lg text-sm">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                    <div>
+                        <h3 id="historyModalTitle" class="text-base font-bold text-slate-800">루틴 달성 히스토리</h3>
+                        <p id="historyModalSubtitle" class="text-xs text-slate-400">과거 달성 내역 및 통계</p>
+                    </div>
+                </div>
+                <button id="closeHistoryModalBtn" class="text-slate-400 hover:text-slate-600 transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- 히스토리 요약 지표 -->
+            <div class="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl text-center border border-slate-100">
+                <div>
+                    <span class="block text-[11px] text-slate-400">최근 14일 달성률</span>
+                    <span id="historyRateText" class="text-sm font-extrabold text-blue-600">0%</span>
+                </div>
+                <div class="border-x border-slate-200/60">
+                    <span class="block text-[11px] text-slate-400">총 완료 횟수</span>
+                    <span id="historyTotalCountText" class="text-sm font-extrabold text-slate-700">0회</span>
+                </div>
+                <div>
+                    <span class="block text-[11px] text-slate-400">연속 달성</span>
+                    <span id="historyStreakText" class="text-sm font-extrabold text-emerald-600">0일</span>
+                </div>
+            </div>
+
+            <!-- 히스토리 날짜별 수행 목록 -->
+            <div class="space-y-2 max-h-60 overflow-y-auto pr-1" id="historyListContainer">
+                <!-- 동적으로 일자별 달성 내역 생성 -->
+            </div>
+
+            <div class="pt-2">
+                <button id="confirmHistoryBtn" class="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition">
+                    확인
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // 기본 10개 초기 데이터 정의
         const DEFAULT_ROUTINES = [
@@ -254,7 +302,7 @@
         const morningList = document.getElementById('morningList');
         const afternoonList = document.getElementById('afternoonList');
 
-        // 모달 DOM
+        // 루틴 추가/수정 모달 DOM
         const routineModal = document.getElementById('routineModal');
         const openAddModalBtn = document.getElementById('openAddModalBtn');
         const closeModalBtn = document.getElementById('closeModalBtn');
@@ -266,6 +314,16 @@
         const modalDescInput = document.getElementById('modalDescInput');
         const modalTagInput = document.getElementById('modalTagInput');
         const submitModalBtn = document.getElementById('submitModalBtn');
+
+        // 히스토리 모달 DOM
+        const historyModal = document.getElementById('historyModal');
+        const closeHistoryModalBtn = document.getElementById('closeHistoryModalBtn');
+        const confirmHistoryBtn = document.getElementById('confirmHistoryBtn');
+        const historyModalTitle = document.getElementById('historyModalTitle');
+        const historyRateText = document.getElementById('historyRateText');
+        const historyTotalCountText = document.getElementById('historyTotalCountText');
+        const historyStreakText = document.getElementById('historyStreakText');
+        const historyListContainer = document.getElementById('historyListContainer');
 
         // YYYY-MM-DD 날짜 포맷
         function getFormattedDate(date) {
@@ -279,7 +337,7 @@
         let currentDate = new Date();
         datePicker.value = getFormattedDate(currentDate);
 
-        // 마스터 루틴 목록 로드 (저장된 게 없으면 초기 데이터 저장)
+        // 마스터 루틴 목록 로드
         function initRoutines() {
             const savedRoutines = localStorage.getItem('master_routines');
             if (savedRoutines) {
@@ -313,7 +371,7 @@
                             <div class="checkbox-icon w-6 h-6 rounded-lg border-2 border-slate-300 flex items-center justify-center shrink-0 mt-0.5 transition-all">
                                 <i class="fa-solid fa-check text-white text-xs hidden"></i>
                             </div>
-                            <div class="flex-1 pr-12">
+                            <div class="flex-1 pr-20">
                                 <div class="flex items-center justify-between gap-2">
                                     <span class="routine-title font-semibold text-slate-800">${r.title}</span>
                                     ${r.tag ? `<span class="px-2 py-0.5 text-[11px] font-medium ${r.tagBg || 'bg-slate-100'} ${r.tagColor || 'text-slate-600'} rounded-md shrink-0">${r.tag}</span>` : ''}
@@ -321,12 +379,15 @@
                                 ${r.desc ? `<p class="routine-desc text-xs text-slate-500 mt-1">${r.desc}</p>` : ''}
                             </div>
                         </label>
-                        <!-- 수정 및 삭제 버튼 구역 -->
+                        <!-- 히스토리, 수정, 삭제 버튼 구역 -->
                         <div class="absolute right-3 top-3.5 flex items-center gap-1 opacity-80 group-hover:opacity-100 transition">
-                            <button onclick="openEditModal('${r.id}')" class="text-slate-300 hover:text-blue-500 p-1.5 rounded-lg transition" title="수정">
+                            <button onclick="openHistoryModal('${r.id}')" class="text-slate-400 hover:text-blue-600 p-1.5 rounded-lg transition" title="히스토리">
+                                <i class="fa-solid fa-clock-rotate-left text-xs"></i>
+                            </button>
+                            <button onclick="openEditModal('${r.id}')" class="text-slate-400 hover:text-blue-600 p-1.5 rounded-lg transition" title="수정">
                                 <i class="fa-solid fa-pen-to-square text-xs"></i>
                             </button>
-                            <button onclick="deleteRoutine('${r.id}')" class="text-slate-300 hover:text-rose-500 p-1.5 rounded-lg transition" title="삭제">
+                            <button onclick="deleteRoutine('${r.id}')" class="text-slate-400 hover:text-rose-500 p-1.5 rounded-lg transition" title="삭제">
                                 <i class="fa-solid fa-trash-can text-xs"></i>
                             </button>
                         </div>
@@ -382,6 +443,74 @@
                 renderRoutines();
             }
         };
+
+        // 개별 루틴 히스토리 모달 열기
+        window.openHistoryModal = function(id) {
+            const target = routines.find(r => r.id === id);
+            if (!target) return;
+
+            historyModalTitle.textContent = target.title;
+            historyListContainer.innerHTML = '';
+
+            const baseDate = new Date(datePicker.value);
+            let totalChecked14Days = 0;
+            let totalCheckedAllTime = 0;
+            let currentStreak = 0;
+            let isStreakActive = true;
+
+            // 최근 14일 달성 내역 생성
+            for (let i = 0; i < 14; i++) {
+                const targetDate = new Date(baseDate);
+                targetDate.setDate(baseDate.getDate() - i);
+                const dateStr = getFormattedDate(targetDate);
+                
+                const savedData = JSON.parse(localStorage.getItem(`routine_${dateStr}`)) || {};
+                const isCompleted = savedData[target.id] || false;
+
+                if (isCompleted) {
+                    totalChecked14Days++;
+                    if (isStreakActive) currentStreak++;
+                } else {
+                    if (i > 0) isStreakActive = false; // 오늘 미완료는 스트릭 중단 처리에서 유예 가능
+                }
+
+                const monthDayStr = `${targetDate.getFullYear()}.${String(targetDate.getMonth() + 1).padStart(2, '0')}.${String(targetDate.getDate()).padStart(2, '0')}`;
+                
+                const historyRow = `
+                    <div class="flex items-center justify-between p-2.5 rounded-xl ${isCompleted ? 'bg-emerald-50/70 border border-emerald-100' : 'bg-slate-50 border border-slate-100'} text-xs">
+                        <span class="font-medium text-slate-600">${monthDayStr}</span>
+                        ${isCompleted 
+                            ? `<span class="font-bold text-emerald-600 flex items-center gap-1"><i class="fa-solid fa-circle-check"></i> 완료</span>` 
+                            : `<span class="font-medium text-slate-400 flex items-center gap-1"><i class="fa-regular fa-circle"></i> 미완료</span>`}
+                    </div>
+                `;
+                historyListContainer.insertAdjacentHTML('beforeend', historyRow);
+            }
+
+            // 전 기간 총 완료 횟수 집계
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('routine_')) {
+                    const data = JSON.parse(localStorage.getItem(key)) || {};
+                    if (data[target.id]) totalCheckedAllTime++;
+                }
+            }
+
+            const rate14 = Math.round((totalChecked14Days / 14) * 100);
+            historyRateText.textContent = `${rate14}%`;
+            historyTotalCountText.textContent = `${totalCheckedAllTime}회`;
+            historyStreakText.textContent = `${currentStreak}일`;
+
+            historyModal.classList.remove('hidden');
+        };
+
+        // 히스토리 모달 닫기
+        function closeHistoryModal() {
+            historyModal.classList.add('hidden');
+        }
+
+        closeHistoryModalBtn.addEventListener('click', closeHistoryModal);
+        confirmHistoryBtn.addEventListener('click', closeHistoryModal);
 
         // 특정 날짜 달성률 계산 (0~100)
         function getPercentByDate(dateStr) {
